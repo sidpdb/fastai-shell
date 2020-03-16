@@ -13,31 +13,31 @@ fi
 # my preferred 1-GPU loads for compute engine
 # as of 15th March, 2020
 declare -A GPUS_IN_ZONES=(
-  ["us-central1-a"]="T4 P4"
-  ["us-central1-b"]="T4"
-  ["us-central1-c"]="P4"
-  ["us-central1-f"]="T4"
-  ["us-east1-c"]="T4"
-  ["us-east1-d"]="T4"
-  ["us-east4-a"]="P4"
-  ["us-east4-b"]="P4"
-  ["us-east4-c"]="P4"
-  ["us-west1-a"]="T4"
-  ["us-west1-b"]="T4"
-  ["us-west2-b"]="P4"
-  ["us-west2-c"]="P4"
+  ["us-central1-a"]="t4 p4"
+  ["us-central1-b"]="t4"
+  ["us-central1-c"]="p4"
+  ["us-central1-f"]="t4"
+  ["us-east1-c"]="t4"
+  ["us-east1-d"]="t4"
+  ["us-east4-a"]="p4"
+  ["us-east4-b"]="p4"
+  ["us-east4-c"]="p4"
+  ["us-west1-a"]="t4"
+  ["us-west1-b"]="t4"
+  ["us-west2-b"]="p4"
+  ["us-west2-c"]="p4"
 )
 
 # preemptible per GPUs cost
 # as of 15th March, 2020
 declare -A PRICE_FOR_GPU=(
-  ["T4"]="0.11"
-  ["P4"]="0.216 0.2592"
+  ["t4"]="USD 0.11"
+  ["p4"]="USD (0.216 0.2592)"
 )
 
 declare -A SYSTEM_FOR_GPU=(
-  ["T4"]="1-24vcpus, 16GB Ram, 1-156GB Mem"
-  ["P4"]="1-24vcpus, 8GB Ram, 1-156GB Mem"
+  ["t4"]="1-24vcpus(4), 16GB Ram, 1-156GB Mem"
+  ["p4"]="1-24vcpus(4), 8GB Ram, 1-156GB Mem"
 )
 
 test-zone () {
@@ -78,6 +78,7 @@ test-zone () {
 }
 
 create_snapshot () {
+  echo "Creating disk-snapshot (fastai-boot-1) instance for zone: $zone."
   gcloud compute --project=$DEVSHELL_PROJECT_ID disks snapshot fastai-boot-1 --zone=$current_zone --snapshot-names=fastai-boot-1
 }
 
@@ -87,17 +88,19 @@ delete_snapshot () {
   set -e
 
   if [[ "$snapshot_count" == "1" ]]; then
+    echo "Deleting disk-snapshot (fastai-boot-1) instance."
     gcloud compute --project=$DEVSHELL_PROJECT_ID snapshots -q delete fastai-boot-1
   fi
 }
 
 create_disk_from_snapshot () {
+  echo "Creating disk from disk-snapshot (fastai-boot-1) instance for zone: $zone type:pd-ssd with size: 50GB."
   gcloud compute --project=$DEVSHELL_PROJECT_ID disks create fastai-boot-1 --zone=$zone --type=pd-ssd --source-snapshot=fastai-boot-1 --size=50GB
 }
 
 list-zones () {
   echo ""
-  echo "Current zone: $current_zone"
+  echo "Current zone: $current_zone."
   echo ""
   for z in "${!GPUS_IN_ZONES[@]}"; do
     echo " * $z (available gpus: ${GPUS_IN_ZONES[$z]})"
@@ -168,7 +171,9 @@ create_network () {
   set -e
 
   if [[ "$has_network" == "0" ]]; then
+    echo "Creating a network (fastai-net) with firewall rules (allow-all-fastai-net)."
     gcloud compute --project=$DEVSHELL_PROJECT_ID networks create fastai-net --subnet-mode=auto
+    # may need to setup forwarding protocols/ports
     gcloud compute --project=$DEVSHELL_PROJECT_ID firewall-rules create allow-all-fastai-net --direction=INGRESS --priority=1000 --network=fastai-net --action=ALLOW --rules=all --source-ranges=0.0.0.0/0
   fi 
 }
@@ -179,6 +184,7 @@ delete_network () {
   set -e
 
   if [[ "$has_network" == "0" ]]; then
+    echo "Deleting firewall-rules (allow-all-fastai-net) and network (fastai-net)." 
     gcloud compute --project=$DEVSHELL_PROJECT_ID firewall-rules -q delete allow-all-fastai-net
     gcloud compute --project=$DEVSHELL_PROJECT_ID networks delete -q fastai-net
   fi
@@ -199,6 +205,8 @@ create_boot_instance () {
   set -e
 
   if [[ "$has_disk" == "0" ]]; then
+    # NOTE: Do we need n1-highcpu-8 and nvidia-tesla-k80,count=1 type??
+    echo "Creating a boot instance (fastai-boot-1)." 
     gcloud compute instances create fastai-boot-1 \
       --project=$DEVSHELL_PROJECT_ID \
       --zone=$current_zone \
@@ -225,6 +233,7 @@ delete_boot_instance () {
   set -e
 
   if [[ "$count" == "1" ]]; then
+    echo "Deleting a boot instance (fastai-boot-1) in zone: $current_zone."
     gcloud compute --project=$DEVSHELL_PROJECT_ID -q instances delete fastai-boot-1 --zone=$current_zone
   fi
 }
@@ -235,6 +244,7 @@ delete_boot_disk () {
   set -e
 
   if [[ "$count" == "1" ]]; then
+    echo "Deleting a boot disk (fastai-boot-1) in zone: $current_zone."
     gcloud compute --project=$DEVSHELL_PROJECT_ID -q disks delete fastai-boot-1 --zone=$current_zone
   fi
 }
@@ -289,9 +299,10 @@ create () {
   echo "Waiting for SSH "
   wait_for_ssh "fastai-boot-1"
 
+  # TODO: uncomment
   echo "Setting up the instance"
-  setup_script="https://raw.githubusercontent.com/arunoda/fastai-shell/master/setup-gce.sh?__ts=$RANDOM"
-  gcloud compute --project $DEVSHELL_PROJECT_ID ssh --zone $current_zone "fastai-boot-1" -- "curl $setup_script > /tmp/setup.sh && bash /tmp/setup.sh"
+  # setup_script="https://raw.githubusercontent.com/arunoda/fastai-shell/master/setup-gce.sh?__ts=$RANDOM"
+  # gcloud compute --project $DEVSHELL_PROJECT_ID ssh --zone $current_zone "fastai-boot-1" -- "curl $setup_script > /tmp/setup.sh && bash /tmp/setup.sh"
 
   echo "Deleting the boot instance"
   delete_boot_instance
@@ -344,6 +355,11 @@ start_instance() {
 
   echo "Creating instance"
 
+  # TODO : check these
+  # export IMAGE_FAMILY="pytorch-latest-gpu" # or "pytorch-latest-cpu" for non-GPU instances
+  # --image-project=deeplearning-platform-release \
+  # --image-family=$IMAGE_FAMILY \
+  # --metadata="install-nvidia-driver=True" \
   if [[ "$gpu_type" == "nogpu" ]]; then
     gcloud compute instances create fastai-1 \
       --project=$DEVSHELL_PROJECT_ID \
@@ -372,20 +388,12 @@ start_instance() {
   show_jupyter_link
 }
 
-v100 () {
-  start_instance "n1-standard-8" "nvidia-tesla-v100"
-}
-
-p100 () {
-  start_instance "n1-standard-8" "nvidia-tesla-p100"
-}
-
 p4 () {
-  start_instance "n1-standard-4" "nvidia-tesla-p4"
+  start_instance "n1-highmem-4" "nvidia-tesla-p4"
 }
 
-k80 () {
-  start_instance "n1-standard-4" "nvidia-tesla-k80"
+t4() {
+  start_instance "n1-highmem-8" "nvidia-tesla-t4"
 }
 
 nogpu () {
