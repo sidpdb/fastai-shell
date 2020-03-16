@@ -10,30 +10,34 @@ else
   current_zone='us-west1-b'
 fi
 
+# my preferred 1-GPU loads for compute engine
+# as of 15th March, 2020
 declare -A GPUS_IN_ZONES=(
-  ["us-central1-c"]="k80 p4 p100"
-  ["us-central1-a"]="k80 p4 v100"
-  ["us-west1-b"]="k80 p100 v100"
-  ["us-west2-b"]="p4"
-  ["us-west2-c"]="p4"
-  ["europe-west1-b"]="k80 p100"
-  ["europe-west1-d"]="k80 p100"
-  ["europe-west4-a"]="p100 v100"
-  ["europe-west4-b"]="p4 v100"
+  ["us-central1-a"]="T4 P4"
+  ["us-central1-b"]="T4"
+  ["us-central1-c"]="P4"
+  ["us-central1-f"]="T4"
+  ["us-east1-c"]="T4"
+  ["us-east1-d"]="T4"
+  ["us-east4-a"]="P4"
+  ["us-east4-b"]="P4"
+  ["us-east4-c"]="P4"
+  ["us-west1-a"]="T4"
+  ["us-west1-b"]="T4"
+  ["us-west2-b"]="P4"
+  ["us-west2-c"]="P4"
 )
 
+# preemptible per GPUs cost
+# as of 15th March, 2020
 declare -A PRICE_FOR_GPU=(
-  ["k80"]="0.18"
-  ["p4"]="0.26"
-  ["p100"]="0.52"
-  ["v100"]="0.83"
+  ["T4"]="0.11"
+  ["P4"]="0.216 0.2592"
 )
 
 declare -A SYSTEM_FOR_GPU=(
-  ["k80"]="4cpus, 15GB Ram"
-  ["p4"]="4cpus, 15GB Ram"
-  ["p100"]="8cpus, 30GB Ram"
-  ["v100"]="8cpus, 30GB Ram"
+  ["T4"]="1-24vcpus, 16GB Ram, 1-156GB Mem"
+  ["P4"]="1-24vcpus, 8GB Ram, 1-156GB Mem"
 )
 
 test-zone () {
